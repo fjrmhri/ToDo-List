@@ -1,6 +1,9 @@
-import sys
+"""Logika utama aplikasi todo berbasis Pygame."""
+
+import logging
 import time
 from pathlib import Path
+
 import pygame
 from pygame import Rect
 
@@ -9,7 +12,13 @@ from todo_app.models import TodoItem
 from todo_app.utils import blur_surface, clip_text_to_width
 
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
 class TodoApp:
+    """Mengelola state, event, dan render aplikasi todo."""
+
     def __init__(self, width: int = 1080, height: int = 700):
         pygame.init()
         pygame.display.set_caption("Minimalist Todo")
@@ -17,18 +26,26 @@ class TodoApp:
         self.height = height
         self.screen = pygame.display.set_mode((self.width, self.height))
         self.clock = pygame.time.Clock()
+        self.running = True
 
         font_path = Path(__file__).parent / "assets" / "fonts" / "Monocraft.otf"
-        if font_path.exists():
-            self.font = pygame.font.Font(font_path.as_posix(), 21)
-            self.small_font = pygame.font.Font(font_path.as_posix(), 16)
-            self.title_font = pygame.font.Font(font_path.as_posix(), 30)
-            self.mono_font = pygame.font.Font(font_path.as_posix(), 15)
-        else:
-            self.font = pygame.font.SysFont("fira sans", 21) or pygame.font.SysFont(None, 21)
-            self.small_font = pygame.font.SysFont("fira sans", 16) or pygame.font.SysFont(None, 16)
-            self.title_font = pygame.font.SysFont("fira sans", 30) or pygame.font.SysFont(None, 30)
-            self.mono_font = pygame.font.SysFont("jetbrains mono", 15) or self.small_font
+        try:
+            if font_path.exists():
+                self.font = pygame.font.Font(font_path.as_posix(), 21)
+                self.small_font = pygame.font.Font(font_path.as_posix(), 16)
+                self.title_font = pygame.font.Font(font_path.as_posix(), 30)
+                self.mono_font = pygame.font.Font(font_path.as_posix(), 15)
+            else:
+                self.font = pygame.font.SysFont("fira sans", 21) or pygame.font.SysFont(None, 21)
+                self.small_font = pygame.font.SysFont("fira sans", 16) or pygame.font.SysFont(None, 16)
+                self.title_font = pygame.font.SysFont("fira sans", 30) or pygame.font.SysFont(None, 30)
+                self.mono_font = pygame.font.SysFont("jetbrains mono", 15) or self.small_font
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Gagal memuat font, menggunakan fallback.", exc_info=exc)
+            self.font = pygame.font.SysFont(None, 21)
+            self.small_font = pygame.font.SysFont(None, 16)
+            self.title_font = pygame.font.SysFont(None, 30)
+            self.mono_font = pygame.font.SysFont(None, 15)
 
         self.palette = {
             "bg": (8, 10, 24),
@@ -60,6 +77,7 @@ class TodoApp:
 
     def add_alert(self, text: str, duration: float = 2.4):
         """Menambahkan pesan singkat yang hilang sendiri setelah durasi tertentu."""
+
         self.alerts.append({"text": text, "timer": duration})
 
     def add_todo(self):
@@ -71,26 +89,41 @@ class TodoApp:
         self.input_text = ""
 
     def remove_todo(self, todo_id: int):
+        """Menghapus todo berdasarkan ID dan memberi log jika tidak ditemukan."""
+
+        before = len(self.todos)
         self.todos = [t for t in self.todos if t.id != todo_id]
+        if len(self.todos) == before:
+            logger.warning("ID todo tidak ditemukan saat hapus: %s", todo_id)
 
     def toggle_todo(self, todo_id: int):
+        """Membalik status selesai todo tertentu; log peringatan jika ID salah."""
+
         for todo in self.todos:
             if todo.id == todo_id:
                 todo.completed = not todo.completed
                 break
+        else:
+            logger.warning("ID todo tidak ditemukan saat toggle: %s", todo_id)
 
     def open_modal(self, todo: TodoItem):
+        """Menampilkan modal detail untuk todo yang dipilih."""
+
         self.modal_item = todo
 
     def close_modal(self):
+        """Menutup modal detail aktif bila ada."""
+
         self.modal_item = None
 
     def handle_events(self, item_layout):
         """Memproses event keyboard dan mouse, termasuk fokus input serta klik elemen."""
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
+                logger.info("Permintaan keluar diterima, menutup aplikasi.")
+                self.running = False
+                return
 
             if event.type == pygame.KEYDOWN:
                 if self.modal_item and event.key in (pygame.K_ESCAPE, pygame.K_RETURN):
@@ -134,6 +167,7 @@ class TodoApp:
 
     def get_item_layout(self):
         """Membuat posisi rectangle untuk kartu, checkbox, dan tombol hapus."""
+
         layout = []
         x, y_start = self.list_origin
         checkbox_size = 28
@@ -142,8 +176,18 @@ class TodoApp:
         for idx, todo in enumerate(self.todos):
             y = y_start + idx * (self.item_height + self.item_spacing)
             rect = Rect(x, y, self.item_width, self.item_height)
-            checkbox = Rect(rect.right - right_padding - delete_size - checkbox_size, rect.centery - checkbox_size // 2, checkbox_size, checkbox_size)
-            delete = Rect(rect.right - right_padding - delete_size, rect.centery - delete_size // 2, delete_size, delete_size)
+            checkbox = Rect(
+                rect.right - right_padding - delete_size - checkbox_size,
+                rect.centery - checkbox_size // 2,
+                checkbox_size,
+                checkbox_size,
+            )
+            delete = Rect(
+                rect.right - right_padding - delete_size,
+                rect.centery - delete_size // 2,
+                delete_size,
+                delete_size,
+            )
             layout.append({"todo": todo, "rect": rect, "checkbox": checkbox, "delete": delete})
         return layout
 
@@ -234,6 +278,8 @@ class TodoApp:
         return Rect(self.list_origin[0], self.height - 86, self.item_width, 52)
 
     def draw_alerts(self, surface: pygame.Surface, dt: float):
+        """Merender pesan alert ringan dan mengurangi timer kedaluwarsa."""
+
         if not self.alerts:
             return
         y = 12
@@ -250,6 +296,8 @@ class TodoApp:
                 self.alerts.remove(alert)
 
     def draw_modal(self, surface: pygame.Surface):
+        """Menggambar modal detail ketika ada todo yang dipilih."""
+
         if not self.modal_item:
             return
         # Overlay semi-transparan untuk memisahkan fokus pengguna.
@@ -290,6 +338,8 @@ class TodoApp:
         self.screen.blit(credit, credit_pos)
 
     def draw_stats(self):
+        """Menampilkan ringkasan total, selesai, dan aktif di panel samping."""
+
         total = len(self.todos)
         completed = len([t for t in self.todos if t.completed])
         pending = total - completed
@@ -352,7 +402,7 @@ class TodoApp:
     def run(self):
         """Loop utama aplikasi yang menangani event, render, dan timing."""
         last_time = time.time()
-        while True:
+        while self.running:
             now = time.time()
             dt = now - last_time
             last_time = now
@@ -362,14 +412,17 @@ class TodoApp:
             try:
                 self.handle_events(layout)
             except Exception as exc:  # noqa: BLE001
-                print("Input error:", exc)
+                logger.exception("Kesalahan saat memproses input.", exc_info=exc)
                 self.add_alert("Unexpected input error.")
                 continue
+
+            if not self.running:
+                break
 
             try:
                 self.render_base(dt, layout)
             except Exception as exc:  # noqa: BLE001
-                print("Render error:", exc)
+                logger.exception("Kesalahan saat merender frame.", exc_info=exc)
                 self.add_alert("Rendering hiccup.")
                 continue
 
@@ -381,6 +434,9 @@ class TodoApp:
 
             pygame.display.flip()
             self.clock.tick(60)
+
+        logger.info("Loop utama selesai, aplikasi ditutup.")
+        pygame.quit()
 
 
 def main():
