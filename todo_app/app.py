@@ -1,5 +1,6 @@
 import sys
 import time
+from pathlib import Path
 import pygame
 from pygame import Rect
 
@@ -9,7 +10,7 @@ from todo_app.utils import blur_surface, clip_text_to_width
 
 
 class TodoApp:
-    def __init__(self, width: int = 960, height: int = 640):
+    def __init__(self, width: int = 1080, height: int = 700):
         pygame.init()
         pygame.display.set_caption("Minimalist Todo")
         self.width = width
@@ -17,15 +18,34 @@ class TodoApp:
         self.screen = pygame.display.set_mode((self.width, self.height))
         self.clock = pygame.time.Clock()
 
-        self.font = pygame.font.SysFont("fira sans", 20) or pygame.font.SysFont(None, 20)
-        self.small_font = pygame.font.SysFont("fira sans", 16) or pygame.font.SysFont(None, 16)
-        self.title_font = pygame.font.SysFont("fira sans", 28) or pygame.font.SysFont(None, 28)
+        font_path = Path(__file__).parent / "assets" / "fonts" / "Monocraft.otf"
+        if font_path.exists():
+            self.font = pygame.font.Font(font_path.as_posix(), 21)
+            self.small_font = pygame.font.Font(font_path.as_posix(), 16)
+            self.title_font = pygame.font.Font(font_path.as_posix(), 30)
+            self.mono_font = pygame.font.Font(font_path.as_posix(), 15)
+        else:
+            self.font = pygame.font.SysFont("fira sans", 21) or pygame.font.SysFont(None, 21)
+            self.small_font = pygame.font.SysFont("fira sans", 16) or pygame.font.SysFont(None, 16)
+            self.title_font = pygame.font.SysFont("fira sans", 30) or pygame.font.SysFont(None, 30)
+            self.mono_font = pygame.font.SysFont("jetbrains mono", 15) or self.small_font
+
+        self.palette = {
+            "bg": (8, 10, 24),
+            "panel": (14, 18, 32),
+            "panel_light": (22, 28, 44),
+            "accent": (0, 231, 183),
+            "accent_alt": (255, 140, 92),
+            "text": (236, 242, 255),
+            "muted": (148, 160, 185),
+            "outline": (58, 76, 112),
+        }
 
         self.todos: list[TodoItem] = []
-        self.item_height = 60
-        self.item_width = 360
-        self.item_spacing = 12
-        self.list_origin = (40, 60)
+        self.item_height = 70
+        self.item_width = 560
+        self.item_spacing = 14
+        self.list_origin = (90, 150)
 
         self.input_text = ""
         self.input_active = False
@@ -35,9 +55,11 @@ class TodoApp:
         self.alerts: list[dict] = []
         self.modal_item: TodoItem | None = None
 
-        self.wave_background = WaveBackground(self.width, self.height, line_count=7)
+        self.wave_background = WaveBackground(self.width, self.height, line_count=8)
+        self.elapsed_time = 0.0
 
     def add_alert(self, text: str, duration: float = 2.4):
+        """Menambahkan pesan singkat yang hilang sendiri setelah durasi tertentu."""
         self.alerts.append({"text": text, "timer": duration})
 
     def add_todo(self):
@@ -64,6 +86,7 @@ class TodoApp:
         self.modal_item = None
 
     def handle_events(self, item_layout):
+        """Memproses event keyboard dan mouse, termasuk fokus input serta klik elemen."""
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -84,7 +107,6 @@ class TodoApp:
                         if event.unicode and event.unicode.isprintable():
                             self.input_text += event.unicode
                 elif event.key == pygame.K_RETURN and not self.modal_item:
-                    # quick focus
                     self.input_active = True
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -111,77 +133,118 @@ class TodoApp:
                         break
 
     def get_item_layout(self):
+        """Membuat posisi rectangle untuk kartu, checkbox, dan tombol hapus."""
         layout = []
         x, y_start = self.list_origin
+        checkbox_size = 28
+        delete_size = 28
+        right_padding = 32
         for idx, todo in enumerate(self.todos):
             y = y_start + idx * (self.item_height + self.item_spacing)
             rect = Rect(x, y, self.item_width, self.item_height)
-            checkbox = Rect(rect.right - 68, rect.centery - 12, 24, 24)
-            delete = Rect(rect.right - 34, rect.centery - 12, 24, 24)
+            checkbox = Rect(rect.right - right_padding - delete_size - checkbox_size, rect.centery - checkbox_size // 2, checkbox_size, checkbox_size)
+            delete = Rect(rect.right - right_padding - delete_size, rect.centery - delete_size // 2, delete_size, delete_size)
             layout.append({"todo": todo, "rect": rect, "checkbox": checkbox, "delete": delete})
         return layout
 
-    def draw_items(self, surface: pygame.Surface, layout):
+    def draw_items(self, surface: pygame.Surface, layout, mouse_pos):
+        """Menggambar kartu todo beserta indikator status dan kontrolnya."""
         for item in layout:
             todo = item["todo"]
             rect = item["rect"]
             checkbox_rect = item["checkbox"]
             delete_rect = item["delete"]
 
-            color = (255, 255, 255)
-            border_color = (80, 80, 80)
-            pygame.draw.rect(surface, color, rect, width=1, border_radius=8)
+            hovered = rect.collidepoint(mouse_pos)
 
-            text_area_width = rect.width - 120
+            card = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+            base_boost = 18 if hovered else 0
+            base_color = tuple(min(255, c + base_boost) for c in (*self.palette["panel"],))
+            corner_radius = 18
+            accent_width = 15
+            pygame.draw.rect(card, (*base_color, 205), card.get_rect(), border_radius=corner_radius)
+
+            accent = self.palette["accent"] if not todo.completed else self.palette["accent_alt"]
+            pygame.draw.rect(card, (*accent, 120), pygame.Rect(0, 0, accent_width, rect.height), border_radius=corner_radius)
+
+            sheen = pygame.Surface((rect.width, rect.height // 2), pygame.SRCALPHA)
+            pygame.draw.rect(sheen, (255, 255, 255, 14), sheen.get_rect(), border_radius=corner_radius)
+            card.blit(sheen, (0, 0))
+
+            if hovered:
+                glint = pygame.Surface((80, rect.height), pygame.SRCALPHA)
+                pygame.draw.rect(glint, (255, 255, 255, 22), glint.get_rect(), border_radius=corner_radius)
+                glint_x = int((self.elapsed_time * 140 + rect.y) % (rect.width + 120)) - 60
+                card.blit(glint, (glint_x, 0))
+
+            text_area_width = rect.width - 170
             clipped = clip_text_to_width(todo.text, self.font, text_area_width)
-            text_color = (220, 220, 220) if todo.completed else (255, 255, 255)
+            text_color = self.palette["muted"] if todo.completed else self.palette["text"]
             text_surface = self.font.render(clipped, True, text_color)
-            surface.blit(text_surface, (rect.x + 14, rect.y + (rect.height - text_surface.get_height()) // 2))
+            card.blit(text_surface, (20, (rect.height - text_surface.get_height()) // 2))
 
-            pygame.draw.rect(surface, border_color, checkbox_rect, width=1, border_radius=4)
+            checkbox_rel = checkbox_rect.move(-rect.x, -rect.y)
+            delete_rel = delete_rect.move(-rect.x, -rect.y)
+
+            pygame.draw.circle(card, self.palette["outline"], checkbox_rel.center, checkbox_rel.width // 2, 2)
             if todo.completed:
-                pygame.draw.rect(surface, color, checkbox_rect.inflate(-8, -8))
+                pygame.draw.circle(card, accent, checkbox_rel.center, checkbox_rel.width // 2 - 4)
+            else:
+                pygame.draw.circle(card, (*self.palette["text"],), checkbox_rel.center, 4)
 
-            pygame.draw.rect(surface, border_color, delete_rect, width=1, border_radius=4)
-            cross_start = (delete_rect.x + 6, delete_rect.y + 6)
-            cross_end = (delete_rect.right - 6, delete_rect.bottom - 6)
-            pygame.draw.line(surface, color, cross_start, cross_end, 2)
-            pygame.draw.line(surface, color, (cross_start[0], cross_end[1]), (cross_end[0], cross_start[1]), 2)
+            pygame.draw.rect(card, self.palette["outline"], delete_rel, width=2, border_radius=8)
+            cross_start = (delete_rel.x + 7, delete_rel.y + 7)
+            cross_end = (delete_rel.right - 7, delete_rel.bottom - 7)
+            pygame.draw.line(card, self.palette["text"], cross_start, cross_end, 2)
+            pygame.draw.line(card, self.palette["text"], (cross_start[0], cross_end[1]), (cross_end[0], cross_start[1]), 2)
+
+            outline_alpha = 150 if hovered else 90
+            pygame.draw.rect(card, (*self.palette["outline"], outline_alpha), card.get_rect(), width=1, border_radius=corner_radius)
+
+            surface.blit(card, rect)
 
     def draw_input(self, surface: pygame.Surface, dt: float):
+        """Menggambar area input dengan garis bawah dan kursor berkedip."""
         rect = self.get_input_rect()
-        underline_color = (255, 255, 255) if self.input_active else (80, 80, 80)
-        text_color = (255, 255, 255)
-        min_width = 220
-        underline_width = max(min_width, self.font.size(self.input_text or " ")[0] + 18)
-
-        underline_start = (rect.x, rect.bottom)
-        underline_end = (rect.x + underline_width, rect.bottom)
-        pygame.draw.line(surface, underline_color, underline_start, underline_end, 2)
-
         jitter = (0, 0)
         if self.input_active and self.typing_feedback_timer > 0:
             jitter = self.vibration.jitter(dt)
             self.typing_feedback_timer = max(0.0, self.typing_feedback_timer - dt)
 
-        text_surface = self.font.render(self.input_text or "Type a new todo", True, text_color if self.input_text else (150, 150, 150))
-        text_position = (rect.x + 2 + jitter[0], rect.y - text_surface.get_height() + jitter[1])
-        surface.blit(text_surface, text_position)
+        text_color = self.palette["outline"]
+        base_x = rect.x + 8
+        base_y = rect.y + (rect.height - self.font.get_height()) // 2
+
+        text_width = 0
+        if self.input_text:
+            text_surface = self.font.render(self.input_text, True, text_color)
+            surface.blit(text_surface, (base_x + jitter[0], base_y + jitter[1]))
+            text_width = text_surface.get_width()
+
+        caret_visible = int((self.elapsed_time * 2) % 2) == 0
+        if self.input_active and caret_visible:
+            caret_x = base_x + text_width + 2 + jitter[0]
+            caret_y = base_y - 2 + jitter[1]
+            pygame.draw.line(surface, text_color, (caret_x, caret_y), (caret_x, caret_y + self.font.get_height() + 4), 2)
+
+        underline_y = rect.bottom - 6
+        pygame.draw.line(surface, (*self.palette["outline"], 160), (base_x, underline_y), (rect.x + rect.width - 12, underline_y), 2)
 
     def get_input_rect(self):
-        return Rect(self.list_origin[0], self.height - 70, self.item_width, 28)
+        return Rect(self.list_origin[0], self.height - 86, self.item_width, 52)
 
     def draw_alerts(self, surface: pygame.Surface, dt: float):
         if not self.alerts:
             return
         y = 12
         for alert in list(self.alerts):
-            text_surf = self.small_font.render(alert["text"], True, (255, 255, 255))
-            background = pygame.Surface((text_surf.get_width() + 20, text_surf.get_height() + 12), pygame.SRCALPHA)
-            pygame.draw.rect(background, (255, 255, 255, 30), background.get_rect(), border_radius=6)
-            background.blit(text_surf, (10, 6))
-            surface.blit(background, (self.width - background.get_width() - 20, y))
-            y += background.get_height() + 8
+            text_surf = self.small_font.render(alert["text"], True, self.palette["text"])
+            background = pygame.Surface((text_surf.get_width() + 26, text_surf.get_height() + 14), pygame.SRCALPHA)
+            pygame.draw.rect(background, (*self.palette["panel_light"], 180), background.get_rect(), border_radius=10)
+            pygame.draw.rect(background, self.palette["accent"], background.get_rect(), width=1, border_radius=10)
+            background.blit(text_surf, (12, 7))
+            surface.blit(background, (self.width - background.get_width() - 24, y))
+            y += background.get_height() + 10
             alert["timer"] -= dt
             if alert["timer"] <= 0:
                 self.alerts.remove(alert)
@@ -189,28 +252,75 @@ class TodoApp:
     def draw_modal(self, surface: pygame.Surface):
         if not self.modal_item:
             return
+        # Overlay semi-transparan untuk memisahkan fokus pengguna.
         overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 120))
+        overlay.fill((4, 6, 14, 180))
         surface.blit(overlay, (0, 0))
 
-        box_width = min(self.width - 200, 520)
-        box_height = 180
+        border_color = self.palette["accent"] if not self.modal_item.completed else self.palette["accent_alt"]
+        box_width = min(self.width - 200, 540)
+        box_height = 200
         rect = Rect((self.width - box_width) // 2, (self.height - box_height) // 2, box_width, box_height)
-        pygame.draw.rect(surface, (255, 255, 255), rect, width=1, border_radius=12)
+        panel = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(panel, (*self.palette["panel_light"], 230), panel.get_rect(), border_radius=18)
+        pygame.draw.rect(panel, border_color, panel.get_rect(), width=2, border_radius=18)
 
-        title = self.title_font.render("Todo Details", True, (255, 255, 255))
-        surface.blit(title, (rect.x + 24, rect.y + 20))
+        title = self.title_font.render("Todo Details", True, self.palette["text"])
+        title_rect = title.get_rect()
+        title_rect.centerx = rect.width // 2
+        title_rect.y = 20
+        panel.blit(title, title_rect)
 
-        body_rect = Rect(rect.x + 24, rect.y + 70, rect.width - 48, rect.height - 90)
+        body_rect = Rect(24, 72, rect.width - 48, rect.height - 92)
         words = self.modal_item.text
         wrapped = self.wrap_text(words, self.font, body_rect.width)
         y = body_rect.y
         for line in wrapped:
-            line_surf = self.font.render(line, True, (255, 255, 255))
-            surface.blit(line_surf, (body_rect.x, y))
+            line_surf = self.font.render(line, True, self.palette["text"])
+            panel.blit(line_surf, (body_rect.x, y))
             y += line_surf.get_height() + 6
 
+        surface.blit(panel, rect)
+
+    def draw_header(self):
+        title = self.title_font.render("To-Do List", True, self.palette["outline"])
+        self.screen.blit(title, (self.list_origin[0], 46))
+        credit = self.small_font.render("github.com/fjrmhri", True, self.palette["outline"])
+        credit_pos = (self.width - credit.get_width() - 16, self.height - credit.get_height() - 12)
+        self.screen.blit(credit, credit_pos)
+
+    def draw_stats(self):
+        total = len(self.todos)
+        completed = len([t for t in self.todos if t.completed])
+        pending = total - completed
+
+        stats_rect = Rect(self.list_origin[0] + self.item_width + 48, self.list_origin[1] - 30, 240, 140)
+        panel = pygame.Surface((stats_rect.width, stats_rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(panel, (*self.palette["panel_light"], 210), panel.get_rect(), border_radius=18)
+        pygame.draw.rect(panel, self.palette["outline"], panel.get_rect(), width=1, border_radius=18)
+
+        bar_rect = Rect(16, 20, stats_rect.width - 32, 10)
+        pygame.draw.rect(panel, (*self.palette["outline"], 130), bar_rect, border_radius=8)
+        if total > 0:
+            completion_ratio = completed / total
+            fill_width = max(4, int(bar_rect.width * completion_ratio))
+            pygame.draw.rect(panel, self.palette["accent"], Rect(bar_rect.x, bar_rect.y, fill_width, bar_rect.height), border_radius=8)
+
+        stat_text = [
+            ("total", total, self.palette["text"]),
+            ("done", completed, self.palette["accent"]),
+            ("active", pending, self.palette["accent_alt"]),
+        ]
+        y = 44
+        for label_text, value, color in stat_text:
+            text = self.mono_font.render(f"{label_text.upper():<7} {value}", True, color)
+            panel.blit(text, (16, y))
+            y += text.get_height() + 6
+
+        self.screen.blit(panel, stats_rect)
+
     def wrap_text(self, text: str, font: pygame.font.Font, max_width: int):
+        """Membungkus teks panjang menjadi beberapa baris agar muat di area modal."""
         words = text.split()
         lines = []
         current = ""
@@ -227,24 +337,26 @@ class TodoApp:
         return lines or [text]
 
     def render_base(self, dt: float, layout):
+        """Memperbarui animasi dasar lalu menggambar elemen UI utama."""
         self.wave_background.update(dt)
-        self.wave_background.draw(self.screen, pygame.mouse.get_pos())
+        mouse_pos = pygame.mouse.get_pos()
+        self.wave_background.draw(self.screen, mouse_pos)
 
-        header = self.title_font.render("Your Todos", True, (255, 255, 255))
-        self.screen.blit(header, (self.list_origin[0], 20))
+        self.draw_header()
+        self.draw_stats()
 
-        pygame.draw.rect(self.screen, (255, 255, 255, 20), Rect(self.list_origin[0] - 10, self.list_origin[1] - 10, self.item_width + 20, self.height - 130), width=1, border_radius=12)
-
-        self.draw_items(self.screen, layout)
+        self.draw_items(self.screen, layout, mouse_pos)
         self.draw_input(self.screen, dt)
         self.draw_alerts(self.screen, dt)
 
     def run(self):
+        """Loop utama aplikasi yang menangani event, render, dan timing."""
         last_time = time.time()
         while True:
             now = time.time()
             dt = now - last_time
             last_time = now
+            self.elapsed_time += dt
 
             layout = self.get_item_layout()
             try:

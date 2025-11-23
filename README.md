@@ -1,41 +1,45 @@
-# Minimalist Todo (Pygame)
+# To-Do List (Pygame)
 
-A desktop todo list application built entirely with Python and Pygame. The interface embraces a clean black-and-white theme, animated wave-like background, and focused modal view for item details.
+Aplikasi daftar tugas desktop berbasis Python dan Pygame dengan latar animasi monokrom yang mengikuti kursor, kartu daftar minimalis, dan modal fokus untuk membaca detail.
 
-## Features
-- Left-aligned todo list with uniform item sizes and clipped text for long entries.
-- Borderless bottom-left input with animated underline and subtle vibration while typing.
-- Checkbox and delete controls on each item to mark completion or remove tasks.
-- Click any item to view its full text in a centered modal with blurred background.
-- Animated white wave lines on a black background that react to mouse movement.
-- Lightweight alert system for empty submissions and other errors.
+## Fitur
+- Kartu tugas seragam dengan radius membulat dan indikator aksen di sisi kiri.
+- Input tanpa border dengan kursor berkedip dan garis bawah; fokus dapat diaktifkan lewat Enter.
+- Modal detail dengan latar blur yang menampilkan teks lengkap.
+- Sorotan saat hover, checkbox untuk menandai selesai, dan tombol hapus pada setiap item.
+- Sistem notifikasi ringan untuk input kosong atau error yang dapat dipulihkan.
+- Font Monocraft disertakan lokal untuk tampilan konsisten.
 
-## Getting Started
-### Prerequisites
-- Python 3.10+
-
-### Installation
-1. Create and activate a virtual environment (recommended).
-2. Install dependencies:
+## Instalasi
+1. Pastikan Python 3.10+ sudah terpasang.
+2. (Disarankan) Buat dan aktifkan virtual environment.
+3. Pasang dependensi:
    ```bash
    pip install -r requirements.txt
    ```
 
-### Running the Application
+## Cara Menjalankan
+Dari root proyek:
 ```bash
 python main.py
 ```
+Jendela Pygame akan terbuka dengan daftar tugas dan latar animasi.
 
-The Pygame window will open with the todo interface. Click the input at the bottom-left or press Enter to start typing, then press Enter again to add the todo.
+## Kontrol / Panduan
+- **Enter**: Fokus ke input; saat mengetik, tekan Enter lagi untuk menambah tugas.
+- **Klik area input**: Fokus ke input.
+- **Klik kartu**: Buka modal detail; **Esc** atau **Enter** menutupnya.
+- **Klik checkbox**: Ubah status selesai.
+- **Klik X**: Hapus tugas.
 
-## Known Limitations
-- The list does not scroll; if many items are added they may extend beyond the visible area.
-- The blur effect is simulated by scaling surfaces and may appear softer on high-resolution displays.
+## Teknologi
+- Python 3.10+
+- Pygame 2.5+
+- Font Monocraft (tersedia di `todo_app/assets/fonts`)
 
-## Project Structure
-- `main.py` – entry point that launches the application.
-- `todo_app/app.py` – main event loop, rendering, and interaction logic.
-- `todo_app/animations.py` – wave background animation and input vibration helper.
-- `todo_app/utils.py` – helper functions for text clipping and surface blur.
-- `todo_app/models.py` – simple data model for todo items.
+## Kontribusi
+Masukan dan pull request dipersilakan. Usahakan perubahan kecil dan fokus, serta pastikan `python -m py_compile main.py` berjalan tanpa error sebelum mengirim.
+
+## Lisensi
+Belum ada lisensi khusus. Perlakukan proyek ini sebagai all-rights-reserved kecuali lisensi ditambahkan.
 
