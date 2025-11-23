@@ -1,57 +1,41 @@
-# Steam Profile Showcase
+# Minimalist Todo (Pygame)
 
-Tampilan profil Steam yang dibangun dengan Next.js 15 dan Tailwind CSS. Aplikasi ini mengambil data profil, koleksi gim, dan achievement langsung dari Steam API. Jika API tidak tersedia, data contoh tetap ditampilkan sehingga halaman selalu informatif.
+A desktop todo list application built entirely with Python and Pygame. The interface embraces a clean black-and-white theme, animated wave-like background, and focused modal view for item details.
 
-## Fitur
-- **Statistik profil**: ringkasan jumlah gim, total achievement, dan estimasi jam bermain.
-- **Kartu gim teratas**: menampilkan gim favorit lengkap dengan 3 achievement terbaik dan waktu bermain.
-- **Bio & ajakan berteman**: profil singkat serta tombol untuk langsung membuka laman Steam.
-- **Fallback data**: konten cadangan otomatis ditampilkan bila API key atau koneksi jaringan belum tersedia.
-- **Desain responsif**: tata letak adaptif untuk mobile hingga desktop dengan gaya glassmorphism yang ringan.
+## Features
+- Left-aligned todo list with uniform item sizes and clipped text for long entries.
+- Borderless bottom-left input with animated underline and subtle vibration while typing.
+- Checkbox and delete controls on each item to mark completion or remove tasks.
+- Click any item to view its full text in a centered modal with blurred background.
+- Animated white wave lines on a black background that react to mouse movement.
+- Lightweight alert system for empty submissions and other errors.
 
-## Prasyarat
-- Node.js 20 atau lebih baru.
-- Akun Steam dengan **Steam API Key** aktif.
-- **Steam ID 64** milik pengguna yang ingin ditampilkan.
+## Getting Started
+### Prerequisites
+- Python 3.10+
 
-## Konfigurasi Lingkungan
-Buat berkas `.env.local` di akar proyek dan isikan:
+### Installation
+1. Create and activate a virtual environment (recommended).
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
+### Running the Application
 ```bash
-STEAM_API_KEY=masukkan_api_key_anda
-STEAM_ID=masukkan_steam_id_anda
+python main.py
 ```
 
-> **Catatan:** Jangan pernah menaruh API key langsung di kode sumber. Aplikasi ini otomatis memakai data contoh bila variabel lingkungan tidak diisi atau Steam API sedang bermasalah.
+The Pygame window will open with the todo interface. Click the input at the bottom-left or press Enter to start typing, then press Enter again to add the todo.
 
-## Menjalankan Secara Lokal
-1. **Instal dependensi**
-   ```bash
-   npm install
-   ```
+## Known Limitations
+- The list does not scroll; if many items are added they may extend beyond the visible area.
+- The blur effect is simulated by scaling surfaces and may appear softer on high-resolution displays.
 
-2. **Jalankan pengembangan**
-   ```bash
-   npm run dev
-   ```
-   Buka `http://localhost:3000` untuk melihat hasilnya.
+## Project Structure
+- `main.py` – entry point that launches the application.
+- `todo_app/app.py` – main event loop, rendering, and interaction logic.
+- `todo_app/animations.py` – wave background animation and input vibration helper.
+- `todo_app/utils.py` – helper functions for text clipping and surface blur.
+- `todo_app/models.py` – simple data model for todo items.
 
-3. **Build produksi (opsional)**
-   ```bash
-   npm run build
-   npm start
-   ```
-
-## Struktur Proyek
-- `src/app/page.js` – komponen utama yang memuat profil, statistik gim, dan kartu achievement.
-- `src/app/layout.js` – kerangka dasar halaman dan inisialisasi font global.
-- `src/app/globals.css` – gaya global dan import Tailwind CSS.
-- `public/` – aset statis.
-- `next.config.mjs` – konfigurasi Next.js termasuk domain gambar yang diizinkan.
-
-## Catatan Pengembangan
-- Fetching data dilakukan di sisi server dengan penanganan error sehingga halaman tetap ter-render walaupun API gagal.
-- Jumlah gim yang diambil dibatasi agar responsif dan mengurangi latensi. Silakan sesuaikan logika pemilihan gim di `page.js` sesuai kebutuhan.
-- Gunakan `npm run lint` untuk memastikan kode tetap sesuai standar.
-
-Selamat bereksperimen dan semoga halaman profil Anda semakin menarik!
